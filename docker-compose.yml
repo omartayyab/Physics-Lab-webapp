@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  pendulum-webapp:
+    build: .
+    # This maps Port 8501 on your PC to Port 8501 inside the container
+    ports:
+      - "8501:8501" 
+    # This magic trick syncs your local folder to the container in real-time.
+    volumes:
+      - .:/app
