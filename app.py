@@ -6,6 +6,7 @@ import scipy.signal as signal
 import numpy as np
 import subprocess
 import os
+import sys
 
 st.set_page_config(page_title="Pendulum Physics Lab", layout="wide")
 
@@ -72,7 +73,7 @@ with st.sidebar:
             
             st.session_state.lab_mode = "Simulation"
             st.session_state.simulation_active = True
-            st.session_state.simulation_process = subprocess.Popen(["python", "mock_sensor.py"], env=env_vars)
+            st.session_state.simulation_process = subprocess.Popen([sys.executable, "mock_sensor.py"], env=env_vars)
             st.rerun()
     else:
         if st.button("⏹️ Stop Simulation", use_container_width=True):
