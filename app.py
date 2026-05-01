@@ -190,23 +190,29 @@ with tab1:
 # ==========================================
 with tab2:
     st.header("SECONDS PENDULUM CALIBRATION")
-    st.markdown("The time period ($T$) of a simple pendulum is governed by its length ($L$) and gravity ($g$):")
-    st.latex(r"T = 2\pi \sqrt{\frac{L}{g}}")
     
-    st.markdown("""
-    A **Seconds Pendulum** is a pendulum whose period is precisely able to keep time. Meaning with each tick tock of the clock we measure seconds! A well-calibrated horological machine will tune its period to be exactly **2.0 seconds** (taking exactly 1 second for the tick and another 1 second for the tock). 
-    Now it's your job to ensure proper time keeping by calibrating your pendulum to keep seconds:
-                            
-    * Adjust the **Length (L)** in the sidebar until your desired value is reached.
-    * Repeat until the error is minimized.
-    * How often does this clock need to be calibrated?
-    """)
+    # Text hidden by default inside an expander so it doesn't take up massive screen space!
+    with st.expander("Show Lab Instructions", expanded=False):
+        st.markdown("The time period ($T$) of a simple pendulum is governed by its length ($L$) and gravity ($g$):")
+        st.latex(r"T = 2\pi \sqrt{\frac{L}{g}}")
+        st.markdown("""
+        A **Seconds Pendulum** is a pendulum whose period is precisely able to keep time. Meaning with each tick tock of the clock we measure seconds! A well-calibrated horological machine will tune its period to be exactly **2.0 seconds** (taking exactly 1 second for the tick and another 1 second for the tock). 
+        Now it's your job to ensure proper time keeping by calibrating your pendulum to keep seconds:
+                                
+        * Adjust the **Length (L)** in the sidebar until your desired value is reached.
+        * Repeat until the error is minimized.
+        * How often does this clock need to be calibrated?
+        """)
     
-    # UI FIX: Added bordered containers so it matches the sidebar layout
     col_t2_1, col_t2_2 = st.columns(2)
     with col_t2_1:
         with st.container(border=True):
-            st.metric("MEASURED T", f"{round(measured_period, 4)} s", delta=f"{round(measured_period-2.0, 4)} s", delta_color="inverse")
+            st.metric("MEASURED T", f"{round(measured_period, 4)} s")
+            # Replaced stock ticker with a subtle gray caption
+            if measured_period > 0:
+                st.caption(f"Δ Target (2.0s): {round(abs(measured_period-2.0), 4)} s")
+            else:
+                st.caption("Awaiting data points...")
     with col_t2_2:
         with st.container(border=True):
             st.write("Ready to record?")
@@ -232,17 +238,20 @@ with tab2:
 # ==========================================
 with tab3:
     st.header("GRAVITY FIELD ANALYSIS")
-    st.markdown("In this mode, assume the 'Gravity' parameter in the sidebar is unknown.")
-    st.latex(r"g = \frac{4\pi^2 L}{T^2}")
+    
+    # Text hidden by default here too
+    with st.expander("Show Lab Instructions", expanded=False):
+        st.markdown("In this mode, assume the 'Gravity' parameter in the sidebar is unknown.")
+        st.latex(r"g = \frac{4\pi^2 L}{T^2}")
     
     if measured_period > 0:
         calc_g = (4 * (np.pi**2) * length) / (measured_period**2)
         
-        # UI FIX: Added bordered containers to match sidebar and Tab 2
         col_t3_1, col_t3_2 = st.columns(2)
         with col_t3_1:
             with st.container(border=True):
                 st.metric("CALCULATED g", f"{round(calc_g, 3)} m/s²")
+                st.caption(f"Using L={length}m, T={round(measured_period, 3)}s")
         with col_t3_2:
             with st.container(border=True):
                 st.write("Save to Notebook")
