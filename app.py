@@ -139,8 +139,7 @@ with tab1:
             st.markdown("---")
             btn_col1, btn_col2 = st.columns([3, 1])
             with btn_col1:
-                # PERMANENTLY VISIBLE BUTTON
-                if st.button("⚡ Auto detect peaks and Tabulate Current View", use_container_width=True):
+                if st.button("⚡ Auto detect peaks and Tabulate Current View", use_container_width=True, key="unique_auto_detect_btn"):
                     st.session_state.captured_angle.clear()
                     st.session_state.captured_velocity.clear()
                     
@@ -157,10 +156,10 @@ with tab1:
                     for i in np.concatenate([pks_v, vly_v]):
                         row = df_plot.iloc[i]
                         st.session_state.captured_velocity.append({"Time": round(row["Time"], 2), "Angular_Velocity": round(row["Angular_Velocity"], 2)})
+                    st.rerun()
                         
             with btn_col2:
-                # PERMANENTLY VISIBLE BUTTON
-                if st.button("🗑️ Clear All Probes", use_container_width=True):
+                if st.button("🗑️ Clear All Probes", use_container_width=True, key="unique_clear_probes_btn"):
                     st.session_state.captured_angle.clear()
                     st.session_state.captured_velocity.clear()
                     st.rerun()
@@ -172,22 +171,23 @@ with tab1:
                     st.subheader("📋 Angle Peaks")
                     df_a = pd.DataFrame(st.session_state.captured_angle).sort_values("Time").reset_index(drop=True)
                     df_a.insert(0, "ID", [f"A{i+1}" for i in range(len(df_a))])
-                    st.data_editor(df_a, use_container_width=True, disabled=["ID"], key="ta")
+                    st.data_editor(df_a, use_container_width=True, disabled=["ID"], key="ta_unique")
                     
                     csv_a = df_a.to_csv(index=False).encode('utf-8')
-                    st.download_button("📥 Download Angle Data", data=csv_a, file_name="angle_peaks.csv", mime="text/csv", use_container_width=True)
+                    st.download_button("📥 Download Angle Data", data=csv_a, file_name="angle_peaks.csv", mime="text/csv", use_container_width=True, key="dl_a_unique")
                     
             with t2:
                 if st.session_state.captured_velocity:
                     st.subheader("📋 Velocity Peaks")
                     df_v = pd.DataFrame(st.session_state.captured_velocity).sort_values("Time").reset_index(drop=True)
                     df_v.insert(0, "ID", [f"V{i+1}" for i in range(len(df_v))])
-                    st.data_editor(df_v, use_container_width=True, disabled=["ID"], key="tv")
+                    st.data_editor(df_v, use_container_width=True, disabled=["ID"], key="tv_unique")
                     
                     csv_v = df_v.to_csv(index=False).encode('utf-8')
-                    st.download_button("📥 Download Velocity Data", data=csv_v, file_name="velocity_peaks.csv", mime="text/csv", use_container_width=True)
+                    st.download_button("📥 Download Velocity Data", data=csv_v, file_name="velocity_peaks.csv", mime="text/csv", use_container_width=True, key="dl_v_unique")
                         
-    except: st.info("NO ACTIVE DATA STREAM")
+    except Exception as e: 
+        st.info("NO ACTIVE DATA STREAM")
 
 # ==========================================
 # TAB 2: CALIBRATION
