@@ -32,14 +32,14 @@ with st.sidebar:
     st.title("CONTROL INTERFACE")
     
     with st.expander("PHYSICAL CONSTANTS", expanded=True):
-        length = st.number_input("Length (L) [m]", value=1.000, step=0.001, format="%.3f")
+        length = st.number_input("Length (L) [m]", value=0.2000, step=0.001, format="%.3f")
         gravity = st.number_input("Gravity (g) [m/s²]", value=9.807, step=0.001, format="%.3f")
         mass = st.number_input("Mass (m) [kg]", value=0.500, step=0.001, format="%.3f")
 
     with st.expander("INITIAL CONDITIONS", expanded=True):
         # Disable initial conditions if they are doing the physical lab
         is_physical = st.session_state.lab_mode == "Physical"
-        init_angle = st.slider("Release Angle [deg]", -90.0, 90.0, 45.0, disabled=is_physical)
+        init_angle = st.slider("Release Angle [deg]", 0, 90.0, 30, disabled=is_physical)
         friction = st.slider("Damping Coeff (b)", 0.00, 1.00, 0.05, disabled=is_physical)
 
     st.markdown("---")
@@ -69,7 +69,7 @@ with st.sidebar:
             st.rerun()
             
     else:
-            if st.button("TERMINATE PROCESS", use_container_width=True, key="stop_sim_btn"):
+            if st.button("Stop data recording", use_container_width=True, key="stop_sim_btn"):
                 if st.session_state.simulation_process:
                     st.session_state.simulation_process.terminate()
                 st.session_state.simulation_active = False
