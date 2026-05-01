@@ -100,94 +100,95 @@ with tab1:
         * Use the Auto-detect peaks button to probe charting points easily.
         * Use the export options to export your data for submission. You can also use plot options to save your plots.
         """)
-        
-    try:
-        df = pd.read_csv("live_data.csv")
-        if not df.empty:
-            df = df.sort_values("Time").reset_index(drop=True)
-            df_plot = df.tail(400) if st.session_state.simulation_active else df
-            
-            # Dark theme plots
-            fig_a = px.line(df_plot, x="Time", y="Angle", template="plotly_dark", color_discrete_sequence=['#00d4ff'])
-            fig_v = px.line(df_plot, x="Time", y="Angular_Velocity", template="plotly_dark", color_discrete_sequence=['#ff4b4b'])
-            
-            # Draw the points on the graphs
-            for f, store, col in [(fig_a, st.session_state.captured_angle, "Angle"), 
-                                  (fig_v, st.session_state.captured_velocity, "Angular_Velocity")]:
-                if store:
-                    odf = pd.DataFrame(store)
-                    f.add_scatter(x=odf["Time"], y=odf[col], mode='markers', marker=dict(color='#ffe100', size=12, symbol='x'), name="Peaks")
+    else:
+        # THE WALL: Only try to load graphs if we are NOT Idle!
+        try:
+            df = pd.read_csv("live_data.csv")
+            if not df.empty:
+                df = df.sort_values("Time").reset_index(drop=True)
+                df_plot = df.tail(400) if st.session_state.simulation_active else df
                 
-                f.update_layout(dragmode='select', clickmode='event+select', height=400, showlegend=False)
-                if st.session_state.simulation_active:
-                    max_t = df_plot["Time"].max()
-                    f.update_layout(xaxis_range=[max(0, max_t - 30), max_t])
+                # Dark theme plots
+                fig_a = px.line(df_plot, x="Time", y="Angle", template="plotly_dark", color_discrete_sequence=['#00d4ff'])
+                fig_v = px.line(df_plot, x="Time", y="Angular_Velocity", template="plotly_dark", color_discrete_sequence=['#ff4b4b'])
+                
+                # Draw the points on the graphs
+                for f, store, col in [(fig_a, st.session_state.captured_angle, "Angle"), 
+                                      (fig_v, st.session_state.captured_velocity, "Angular_Velocity")]:
+                    if store:
+                        odf = pd.DataFrame(store)
+                        f.add_scatter(x=odf["Time"], y=odf[col], mode='markers', marker=dict(color='#ffe100', size=12, symbol='x'), name="Peaks")
+                    
+                    f.update_layout(dragmode='select', clickmode='event+select', height=400, showlegend=False)
+                    if st.session_state.simulation_active:
+                        max_t = df_plot["Time"].max()
+                        f.update_layout(xaxis_range=[max(0, max_t - 30), max_t])
 
-            c1, c2 = st.columns(2)
-            with c1: ev_a = st.plotly_chart(fig_a, use_container_width=True, on_select="rerun", key="a_plt")
-            with c2: ev_v = st.plotly_chart(fig_v, use_container_width=True, on_select="rerun", key="v_plt")
-            
-            # Manual point selection
-            for ev, store, col in [(ev_a, st.session_state.captured_angle, "Angle"), 
-                                   (ev_v, st.session_state.captured_velocity, "Angular_Velocity")]:
-                if ev and "selection" in ev and ev["selection"]["points"]:
-                    for p in ev["selection"]["points"]:
-                        new_pt = {"Time": round(p["x"], 2), col: round(p["y"], 2)}
-                        if not any(abs(pt['Time'] - new_pt['Time']) < 0.05 for pt in store):
-                            store.append(new_pt)
+                c1, c2 = st.columns(2)
+                with c1: ev_a = st.plotly_chart(fig_a, use_container_width=True, on_select="rerun")
+                with c2: ev_v = st.plotly_chart(fig_v, use_container_width=True, on_select="rerun")
+                
+                # Manual point selection
+                for ev, store, col in [(ev_a, st.session_state.captured_angle, "Angle"), 
+                                       (ev_v, st.session_state.captured_velocity, "Angular_Velocity")]:
+                    if ev and "selection" in ev and ev["selection"]["points"]:
+                        for p in ev["selection"]["points"]:
+                            new_pt = {"Time": round(p["x"], 2), col: round(p["y"], 2)}
+                            if not any(abs(pt['Time'] - new_pt['Time']) < 0.05 for pt in store):
+                                store.append(new_pt)
 
-            st.markdown("---")
-            btn_col1, btn_col2 = st.columns([3, 1])
-            with btn_col1:
-                if st.button("⚡ Auto detect peaks and Tabulate Current View", use_container_width=True, key="unique_auto_detect_btn"):
-                    st.session_state.captured_angle.clear()
-                    st.session_state.captured_velocity.clear()
-                    
-                    # Process Angle Peaks
-                    pks_a, _ = signal.find_peaks(df_plot["Angle"], distance=20, prominence=0.5)
-                    vly_a, _ = signal.find_peaks(-df_plot["Angle"], distance=20, prominence=0.5)
-                    for i in np.concatenate([pks_a, vly_a]):
-                        row = df_plot.iloc[i]
-                        st.session_state.captured_angle.append({"Time": round(row["Time"], 2), "Angle": round(row["Angle"], 2)})
+                st.markdown("---")
+                btn_col1, btn_col2 = st.columns([3, 1])
+                with btn_col1:
+                    if st.button("⚡ Auto detect peaks and Tabulate Current View", use_container_width=True):
+                        st.session_state.captured_angle.clear()
+                        st.session_state.captured_velocity.clear()
                         
-                    # Process Velocity Peaks
-                    pks_v, _ = signal.find_peaks(df_plot["Angular_Velocity"], distance=20, prominence=1.0)
-                    vly_v, _ = signal.find_peaks(-df_plot["Angular_Velocity"], distance=20, prominence=1.0)
-                    for i in np.concatenate([pks_v, vly_v]):
-                        row = df_plot.iloc[i]
-                        st.session_state.captured_velocity.append({"Time": round(row["Time"], 2), "Angular_Velocity": round(row["Angular_Velocity"], 2)})
-                    st.rerun()
-                        
-            with btn_col2:
-                if st.button("🗑️ Clear All Probes", use_container_width=True, key="unique_clear_probes_btn"):
-                    st.session_state.captured_angle.clear()
-                    st.session_state.captured_velocity.clear()
-                    st.rerun()
+                        # Process Angle Peaks
+                        pks_a, _ = signal.find_peaks(df_plot["Angle"], distance=20, prominence=0.5)
+                        vly_a, _ = signal.find_peaks(-df_plot["Angle"], distance=20, prominence=0.5)
+                        for i in np.concatenate([pks_a, vly_a]):
+                            row = df_plot.iloc[i]
+                            st.session_state.captured_angle.append({"Time": round(row["Time"], 2), "Angle": round(row["Angle"], 2)})
+                            
+                        # Process Velocity Peaks
+                        pks_v, _ = signal.find_peaks(df_plot["Angular_Velocity"], distance=20, prominence=1.0)
+                        vly_v, _ = signal.find_peaks(-df_plot["Angular_Velocity"], distance=20, prominence=1.0)
+                        for i in np.concatenate([pks_v, vly_v]):
+                            row = df_plot.iloc[i]
+                            st.session_state.captured_velocity.append({"Time": round(row["Time"], 2), "Angular_Velocity": round(row["Angular_Velocity"], 2)})
+                        st.rerun()
+                            
+                with btn_col2:
+                    if st.button("🗑️ Clear All Probes", use_container_width=True):
+                        st.session_state.captured_angle.clear()
+                        st.session_state.captured_velocity.clear()
+                        st.rerun()
 
-            # PERMANENTLY VISIBLE TABLES
-            t1, t2 = st.columns(2)
-            with t1:
-                if st.session_state.captured_angle:
-                    st.subheader("📋 Angle Peaks")
-                    df_a = pd.DataFrame(st.session_state.captured_angle).sort_values("Time").reset_index(drop=True)
-                    df_a.insert(0, "ID", [f"A{i+1}" for i in range(len(df_a))])
-                    st.data_editor(df_a, use_container_width=True, disabled=["ID"], key="ta_unique")
-                    
-                    csv_a = df_a.to_csv(index=False).encode('utf-8')
-                    st.download_button("📥 Download Angle Data", data=csv_a, file_name="angle_peaks.csv", mime="text/csv", use_container_width=True, key="dl_a_unique")
-                    
-            with t2:
-                if st.session_state.captured_velocity:
-                    st.subheader("📋 Velocity Peaks")
-                    df_v = pd.DataFrame(st.session_state.captured_velocity).sort_values("Time").reset_index(drop=True)
-                    df_v.insert(0, "ID", [f"V{i+1}" for i in range(len(df_v))])
-                    st.data_editor(df_v, use_container_width=True, disabled=["ID"], key="tv_unique")
-                    
-                    csv_v = df_v.to_csv(index=False).encode('utf-8')
-                    st.download_button("📥 Download Velocity Data", data=csv_v, file_name="velocity_peaks.csv", mime="text/csv", use_container_width=True, key="dl_v_unique")
+                # PERMANENTLY VISIBLE TABLES
+                t1, t2 = st.columns(2)
+                with t1:
+                    if st.session_state.captured_angle:
+                        st.subheader("📋 Angle Peaks")
+                        df_a = pd.DataFrame(st.session_state.captured_angle).sort_values("Time").reset_index(drop=True)
+                        df_a.insert(0, "ID", [f"A{i+1}" for i in range(len(df_a))])
+                        st.data_editor(df_a, use_container_width=True, disabled=["ID"])
                         
-    except Exception as e: 
-        st.info("NO ACTIVE DATA STREAM")
+                        csv_a = df_a.to_csv(index=False).encode('utf-8')
+                        st.download_button("📥 Download Angle Data", data=csv_a, file_name="angle_peaks.csv", mime="text/csv", use_container_width=True)
+                        
+                with t2:
+                    if st.session_state.captured_velocity:
+                        st.subheader("📋 Velocity Peaks")
+                        df_v = pd.DataFrame(st.session_state.captured_velocity).sort_values("Time").reset_index(drop=True)
+                        df_v.insert(0, "ID", [f"V{i+1}" for i in range(len(df_v))])
+                        st.data_editor(df_v, use_container_width=True, disabled=["ID"])
+                        
+                        csv_v = df_v.to_csv(index=False).encode('utf-8')
+                        st.download_button("📥 Download Velocity Data", data=csv_v, file_name="velocity_peaks.csv", mime="text/csv", use_container_width=True)
+                            
+        except Exception as e: 
+            st.info("NO ACTIVE DATA STREAM")
 
 # ==========================================
 # TAB 2: CALIBRATION
