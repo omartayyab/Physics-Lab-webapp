@@ -84,59 +84,104 @@ tab1, tab2, tab3 = st.tabs(["INSTRUMENTATION", "CALIBRATION", "GRAVITY EXPLORER"
 # TAB 1: INSTRUMENTATION
 # ==========================================
 with tab1:
-    is_paused = st.toggle("FREEZE DATA STREAM", value=not st.session_state.simulation_active)
-    
-    if st.session_state.lab_mode == "IDLE":
-        # YOUR RECOVERED TEXT
-        st.info("""
-        **Welcome to the pendulum activity!**
+    col_h1, col_h2 = st.columns([3, 1])
+    with col_h1:
+        if st.session_state.lab_mode == "IDLE":
+            st.info("""
+            **Welcome to the pendulum activity!**
 
-        * Choose between running a simulation or conducting this experiment using the pendulum in your physics box.
-        * Adjust parameters in the sidebar to begin.
-        * Use the Auto-detect peaks button to probe charting points easily.
-        * Use the export options to export your data for submission. You can also use plot options to save your plots.
-        """)
+            * Choose between running a simulation or conducting this experiment using the pendulum in your physics box.
+            * Adjust parameters in the sidebar to begin.
+            * Use the Auto-detect peaks button to probe charting points easily.
+            * Use the export options to export your data for submission. You can also use plot options to save your plots.
+            """)
+    with col_h2:
+        is_paused = st.toggle("FREEZE DATA STREAM", value=not st.session_state.simulation_active, disabled=(st.session_state.lab_mode == "IDLE"))
         
     try:
         df = pd.read_csv("live_data.csv")
         if not df.empty:
             df = df.sort_values("Time").reset_index(drop=True)
-            df_plot = df.tail(500) if st.session_state.simulation_active else df
+            df_plot = df.tail(400) if st.session_state.simulation_active else df
             
             # Dark theme plots
             fig_a = px.line(df_plot, x="Time", y="Angle", template="plotly_dark", color_discrete_sequence=['#00d4ff'])
             fig_v = px.line(df_plot, x="Time", y="Angular_Velocity", template="plotly_dark", color_discrete_sequence=['#ff4b4b'])
             
-            # THE FIX: Draw the points on the graph!
-            if st.session_state.captured_angle:
-                df_pts = pd.DataFrame(st.session_state.captured_angle)
-                fig_a.add_scatter(x=df_pts["Time"], y=df_pts["Angle"], mode='markers', 
-                                  marker=dict(color='#ffe100', size=12, symbol='x'), name="Peaks")
-            
+            # Draw the points on the graphs!
+            for f, store, col in [(fig_a, st.session_state.captured_angle, "Angle"), 
+                                  (fig_v, st.session_state.captured_velocity, "Angular_Velocity")]:
+                if store:
+                    odf = pd.DataFrame(store)
+                    f.add_scatter(x=odf["Time"], y=odf[col], mode='markers', marker=dict(color='#ffe100', size=12, symbol='x'), name="Peaks")
+                
+                f.update_layout(dragmode='select', clickmode='event+select', height=400, showlegend=False)
+                if st.session_state.simulation_active and not is_paused:
+                    max_t = df_plot["Time"].max()
+                    f.update_layout(xaxis_range=[max(0, max_t - 30), max_t])
+
             c1, c2 = st.columns(2)
-            with c1: st.plotly_chart(fig_a, use_container_width=True)
-            with c2: st.plotly_chart(fig_v, use_container_width=True)
+            with c1: ev_a = st.plotly_chart(fig_a, use_container_width=True, on_select="rerun", key="a_plt")
+            with c2: ev_v = st.plotly_chart(fig_v, use_container_width=True, on_select="rerun", key="v_plt")
             
             if is_paused:
-                col_btn1, col_btn2 = st.columns(2)
-                with col_btn1:
-                    if st.button("AUTO-EXTRACT PEAKS"):
-                        st.session_state.captured_angle = [] 
-                        pks, _ = signal.find_peaks(df_plot["Angle"], distance=15, prominence=0.5)
-                        for i in pks:
-                            row = df_plot.iloc[i]
-                            st.session_state.captured_angle.append({"Time": round(row["Time"], 3), "Angle": round(row["Angle"], 3)})
+                # Manual point selection logic restored
+                for ev, store, col in [(ev_a, st.session_state.captured_angle, "Angle"), 
+                                       (ev_v, st.session_state.captured_velocity, "Angular_Velocity")]:
+                    if ev and "selection" in ev and ev["selection"]["points"]:
+                        for p in ev["selection"]["points"]:
+                            new_pt = {"Time": round(p["x"], 2), col: round(p["y"], 2)}
+                            if not any(abs(pt['Time'] - new_pt['Time']) < 0.05 for pt in store):
+                                store.append(new_pt)
                         st.rerun()
-                with col_btn2:
-                    if st.button("RESET PEAK DATA"):
-                        st.session_state.captured_angle = []; st.rerun()
+
+                st.markdown("---")
+                btn_col1, btn_col2 = st.columns([3, 1])
+                with btn_col1:
+                    # Original Button Name Restored
+                    if st.button("⚡ Auto detect peaks and Tabulate Current View", use_container_width=True):
+                        # Clear old points first
+                        st.session_state.captured_angle = []
+                        st.session_state.captured_velocity = []
                         
-                # Provide CSV Download for extracted peaks
-                if st.session_state.captured_angle:
-                    df_a = pd.DataFrame(st.session_state.captured_angle)
-                    csv_a = df_a.to_csv(index=False).encode('utf-8')
-                    st.download_button("📥 Download Peak Data", data=csv_a, file_name="angle_peaks.csv", mime="text/csv", use_container_width=True)
-                    
+                        for col, store, prom in [("Angle", st.session_state.captured_angle, 0.5), 
+                                                 ("Angular_Velocity", st.session_state.captured_velocity, 1.0)]:
+                            pks, _ = signal.find_peaks(df_plot[col], distance=10, prominence=prom, plateau_size=(1, 5))
+                            vly, _ = signal.find_peaks(-df_plot[col], distance=10, prominence=prom, plateau_size=(1, 5))
+                            for i in np.concatenate([pks, vly]):
+                                row = df_plot.iloc[i]
+                                store.append({"Time": round(row["Time"], 2), col: round(row[col], 2)})
+                        st.rerun()
+                
+                with btn_col2:
+                    # Original Clear Button Restored
+                    if st.button("🗑️ Clear All Probes", use_container_width=True):
+                        st.session_state.captured_angle = []
+                        st.session_state.captured_velocity = []
+                        st.rerun()
+
+                # Original Tables Restored
+                t1, t2 = st.columns(2)
+                with t1:
+                    if st.session_state.captured_angle:
+                        st.subheader("📋 Angle Peaks")
+                        df_a = pd.DataFrame(st.session_state.captured_angle).sort_values("Time").reset_index(drop=True)
+                        df_a.insert(0, "ID", [f"A{i+1}" for i in range(len(df_a))])
+                        st.data_editor(df_a, use_container_width=True, disabled=["ID"], key="ta")
+                        
+                        csv_a = df_a.to_csv(index=False).encode('utf-8')
+                        st.download_button("📥 Download Angle Data", data=csv_a, file_name="angle_peaks.csv", mime="text/csv", use_container_width=True)
+                        
+                with t2:
+                    if st.session_state.captured_velocity:
+                        st.subheader("📋 Velocity Peaks")
+                        df_v = pd.DataFrame(st.session_state.captured_velocity).sort_values("Time").reset_index(drop=True)
+                        df_v.insert(0, "ID", [f"V{i+1}" for i in range(len(df_v))])
+                        st.data_editor(df_v, use_container_width=True, disabled=["ID"], key="tv")
+                        
+                        csv_v = df_v.to_csv(index=False).encode('utf-8')
+                        st.download_button("📥 Download Velocity Data", data=csv_v, file_name="velocity_peaks.csv", mime="text/csv", use_container_width=True)
+                        
     except: st.info("NO ACTIVE DATA STREAM")
 
 # ==========================================
@@ -147,7 +192,6 @@ with tab2:
     st.markdown("The time period ($T$) of a simple pendulum is governed by its length ($L$) and gravity ($g$):")
     st.latex(r"T = 2\pi \sqrt{\frac{L}{g}}")
     
-    # YOUR RECOVERED TEXT
     st.markdown("""
     A **Seconds Pendulum** is a pendulum whose period is precisely able to keep time. Meaning with each tick tock of the clock we measure seconds! A well-calibrated horological machine will tune its period to be exactly **2.0 seconds** (taking exactly 1 second for the tick and another 1 second for the tock). 
     Now it's your job to ensure proper time keeping by calibrating your pendulum to keep seconds:
