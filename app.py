@@ -39,7 +39,7 @@ with st.sidebar:
     with st.expander("INITIAL CONDITIONS", expanded=True):
         # Disable initial conditions if they are doing the physical lab
         is_physical = st.session_state.lab_mode == "Physical"
-        init_angle = st.slider("Release Angle [deg]", -90.0, 90.0, 45.0, disabled=is_physical)
+        init_angle = st.slider("Release Angle [deg]", 0.0, 90.0, 45.0, disabled=is_physical)
         friction = st.slider("Damping Coeff (b)", 0.00, 1.00, 0.05, disabled=is_physical)
 
     st.markdown("---")
