@@ -11,7 +11,7 @@ import sys
 # Forces a wide, professional layout
 st.set_page_config(page_title="PHYS-LAB: Pendulum Kinematics", layout="wide")
 
-# Kept the monospace font for a "Scientific" feel, but removed all the ugly dark-mode overrides!
+# Kept the monospace font for a "Scientific" feel, no forced colors.
 st.markdown("""
     <style>
     .stApp { font-family: 'Courier New', Courier, monospace; }
@@ -42,7 +42,7 @@ with st.sidebar:
 
     st.markdown("---")
     if not st.session_state.simulation_active:
-        if st.button("EXECUTE SIMULATION", use_container_width=True, type="primary"):
+        if st.button("EXECUTE SIMULATION", use_container_width=True, type="primary", key="start_sim_btn"):
             if st.session_state.simulation_process:
                 try: st.session_state.simulation_process.terminate()
                 except: pass
@@ -59,7 +59,7 @@ with st.sidebar:
             st.session_state.simulation_process = subprocess.Popen([sys.executable, "mock_sensor.py"], env=env_vars)
             st.rerun()
     else:
-        if st.button("TERMINATE PROCESS", use_container_width=True):
+        if st.button("TERMINATE PROCESS", use_container_width=True, key="stop_sim_btn"):
             if st.session_state.simulation_process:
                 st.session_state.simulation_process.terminate()
             st.session_state.simulation_active = False
@@ -105,7 +105,7 @@ with tab1:
                 df = df.sort_values("Time").reset_index(drop=True)
                 df_plot = df.tail(400) if st.session_state.simulation_active else df
                 
-                # Dynamic plots (Removed forced dark theme so it adapts to user preference)
+                # Dynamic plots
                 fig_a = px.line(df_plot, x="Time", y="Angle", color_discrete_sequence=['#00a8e8'])
                 fig_v = px.line(df_plot, x="Time", y="Angular_Velocity", color_discrete_sequence=['#ff4b4b'])
                 
@@ -122,8 +122,8 @@ with tab1:
                         f.update_layout(xaxis_range=[max(0, max_t - 30), max_t])
 
                 c1, c2 = st.columns(2)
-                with c1: ev_a = st.plotly_chart(fig_a, use_container_width=True, on_select="rerun")
-                with c2: ev_v = st.plotly_chart(fig_v, use_container_width=True, on_select="rerun")
+                with c1: ev_a = st.plotly_chart(fig_a, use_container_width=True, on_select="rerun", key="chart_angle")
+                with c2: ev_v = st.plotly_chart(fig_v, use_container_width=True, on_select="rerun", key="chart_vel")
                 
                 # Manual point selection
                 for ev, store, col in [(ev_a, st.session_state.captured_angle, "Angle"), 
@@ -137,18 +137,16 @@ with tab1:
                 st.markdown("---")
                 btn_col1, btn_col2 = st.columns([3, 1])
                 with btn_col1:
-                    if st.button("⚡ Auto detect peaks and Tabulate Current View", use_container_width=True):
+                    if st.button("⚡ Auto detect peaks and Tabulate Current View", use_container_width=True, key="t1_auto_btn"):
                         st.session_state.captured_angle.clear()
                         st.session_state.captured_velocity.clear()
                         
-                        # Process Angle Peaks
                         pks_a, _ = signal.find_peaks(df_plot["Angle"], distance=20, prominence=0.5)
                         vly_a, _ = signal.find_peaks(-df_plot["Angle"], distance=20, prominence=0.5)
                         for i in np.concatenate([pks_a, vly_a]):
                             row = df_plot.iloc[i]
                             st.session_state.captured_angle.append({"Time": round(row["Time"], 2), "Angle": round(row["Angle"], 2)})
                             
-                        # Process Velocity Peaks
                         pks_v, _ = signal.find_peaks(df_plot["Angular_Velocity"], distance=20, prominence=1.0)
                         vly_v, _ = signal.find_peaks(-df_plot["Angular_Velocity"], distance=20, prominence=1.0)
                         for i in np.concatenate([pks_v, vly_v]):
@@ -157,7 +155,7 @@ with tab1:
                         st.rerun()
                             
                 with btn_col2:
-                    if st.button("🗑️ Clear All Probes", use_container_width=True):
+                    if st.button("🗑️ Clear All Probes", use_container_width=True, key="t1_clear_btn"):
                         st.session_state.captured_angle.clear()
                         st.session_state.captured_velocity.clear()
                         st.rerun()
@@ -169,20 +167,20 @@ with tab1:
                         st.subheader("📋 Angle Peaks")
                         df_a = pd.DataFrame(st.session_state.captured_angle).sort_values("Time").reset_index(drop=True)
                         df_a.insert(0, "ID", [f"A{i+1}" for i in range(len(df_a))])
-                        st.data_editor(df_a, use_container_width=True, disabled=["ID"])
+                        st.data_editor(df_a, use_container_width=True, disabled=["ID"], key="t1_angle_table")
                         
                         csv_a = df_a.to_csv(index=False).encode('utf-8')
-                        st.download_button("📥 Download Angle Data", data=csv_a, file_name="angle_peaks.csv", mime="text/csv", use_container_width=True)
+                        st.download_button("📥 Download Angle Data", data=csv_a, file_name="angle_peaks.csv", mime="text/csv", use_container_width=True, key="t1_dl_angle")
                         
                 with t2:
                     if st.session_state.captured_velocity:
                         st.subheader("📋 Velocity Peaks")
                         df_v = pd.DataFrame(st.session_state.captured_velocity).sort_values("Time").reset_index(drop=True)
                         df_v.insert(0, "ID", [f"V{i+1}" for i in range(len(df_v))])
-                        st.data_editor(df_v, use_container_width=True, disabled=["ID"])
+                        st.data_editor(df_v, use_container_width=True, disabled=["ID"], key="t1_vel_table")
                         
                         csv_v = df_v.to_csv(index=False).encode('utf-8')
-                        st.download_button("📥 Download Velocity Data", data=csv_v, file_name="velocity_peaks.csv", mime="text/csv", use_container_width=True)
+                        st.download_button("📥 Download Velocity Data", data=csv_v, file_name="velocity_peaks.csv", mime="text/csv", use_container_width=True, key="t1_dl_vel")
                             
         except Exception as e: 
             st.info("NO ACTIVE DATA STREAM")
@@ -204,13 +202,17 @@ with tab2:
     * How often does this clock need to be calibrated?
     """)
     
-    m1, m2 = st.columns(2)
-    with m1:
-        st.metric("MEASURED T", f"{round(measured_period, 4)} s", delta=f"{round(measured_period-2.0, 4)} s", delta_color="inverse")
-    with m2:
-        if st.button("LOG CALIBRATION TRIAL", disabled=(measured_period == 0)):
-            st.session_state.cal_notebook.append({"L": length, "T": round(measured_period, 4)})
-            st.rerun()
+    # UI FIX: Added bordered containers so it matches the sidebar layout
+    col_t2_1, col_t2_2 = st.columns(2)
+    with col_t2_1:
+        with st.container(border=True):
+            st.metric("MEASURED T", f"{round(measured_period, 4)} s", delta=f"{round(measured_period-2.0, 4)} s", delta_color="inverse")
+    with col_t2_2:
+        with st.container(border=True):
+            st.write("Ready to record?")
+            if st.button("LOG CALIBRATION TRIAL", disabled=(measured_period == 0), use_container_width=True, key="t2_log_btn"):
+                st.session_state.cal_notebook.append({"L": length, "T": round(measured_period, 4)})
+                st.rerun()
     
     if st.session_state.cal_notebook:
         df_cal = pd.DataFrame(st.session_state.cal_notebook)
@@ -219,9 +221,9 @@ with tab2:
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
             csv_cal = df_cal.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 Download Calibration Data", data=csv_cal, file_name="calibration_tracker.csv", mime="text/csv", use_container_width=True)
+            st.download_button("📥 Download Calibration Data", data=csv_cal, file_name="calibration_tracker.csv", mime="text/csv", use_container_width=True, key="t2_dl_btn")
         with col_btn2:
-            if st.button("🗑️ Clear Tracker", use_container_width=True):
+            if st.button("🗑️ Clear Tracker", use_container_width=True, key="t2_clear_btn"):
                 st.session_state.cal_notebook = []
                 st.rerun()
 
@@ -236,14 +238,17 @@ with tab3:
     if measured_period > 0:
         calc_g = (4 * (np.pi**2) * length) / (measured_period**2)
         
-        # FIX: Placed the metric in a small, constrained column so it looks like a professional read-out!
-        col_metric, _ = st.columns([1, 3])
-        with col_metric:
-            st.metric("CALCULATED g", f"{round(calc_g, 3)} m/s²")
-            
-        if st.button("COMMIT DATA TO NOTEBOOK"):
-            st.session_state.lab_notebook.append({"L": length, "T": round(measured_period, 4), "calc_g": round(calc_g, 3)})
-            st.rerun()
+        # UI FIX: Added bordered containers to match sidebar and Tab 2
+        col_t3_1, col_t3_2 = st.columns(2)
+        with col_t3_1:
+            with st.container(border=True):
+                st.metric("CALCULATED g", f"{round(calc_g, 3)} m/s²")
+        with col_t3_2:
+            with st.container(border=True):
+                st.write("Save to Notebook")
+                if st.button("COMMIT DATA TO NOTEBOOK", use_container_width=True, key="t3_commit_btn"):
+                    st.session_state.lab_notebook.append({"L": length, "T": round(measured_period, 4), "calc_g": round(calc_g, 3)})
+                    st.rerun()
     else:
         st.info("Probe peaks in the Live tab to measure a period before logging.")
         
@@ -254,9 +259,9 @@ with tab3:
         col_btn3, col_btn4 = st.columns(2)
         with col_btn3:
             csv_nb = df_notebook.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 Download Notebook Data", data=csv_nb, file_name="gravity_notebook.csv", mime="text/csv", use_container_width=True)
+            st.download_button("📥 Download Notebook Data", data=csv_nb, file_name="gravity_notebook.csv", mime="text/csv", use_container_width=True, key="t3_dl_btn")
         with col_btn4:
-            if st.button("🗑️ Clear Notebook", use_container_width=True):
+            if st.button("🗑️ Clear Notebook", use_container_width=True, key="t3_clear_btn"):
                 st.session_state.lab_notebook = []
                 st.rerun()
 
