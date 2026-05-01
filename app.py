@@ -74,11 +74,9 @@ st.title("PENDULUM DYNAMICS ANALYZER")
 measured_period = 0.0
 if st.session_state.captured_angle:
     df_a = pd.DataFrame(st.session_state.captured_angle).sort_values("Time")
-    # Only look at significant top peaks
     crests = df_a[df_a["Angle"] > 5.0] 
     
     if len(crests) >= 2:
-        # Smart Filter: Remove points that are too close together to prevent double-counting noise
         valid_crests = [crests.iloc[0]]
         for i in range(1, len(crests)):
             if crests.iloc[i]["Time"] - valid_crests[-1]["Time"] > 0.5:
@@ -93,20 +91,15 @@ tab1, tab2, tab3 = st.tabs(["INSTRUMENTATION", "CALIBRATION", "GRAVITY EXPLORER"
 # TAB 1: INSTRUMENTATION
 # ==========================================
 with tab1:
-    col_h1, col_h2 = st.columns([3, 1])
-    with col_h1:
-        if st.session_state.lab_mode == "IDLE":
-            st.info("""
-            **Welcome to the pendulum activity!**
+    if st.session_state.lab_mode == "IDLE":
+        st.info("""
+        **Welcome to the pendulum activity!**
 
-            * Choose between running a simulation or conducting this experiment using the pendulum in your physics box.
-            * Adjust parameters in the sidebar to begin.
-            * Use the Auto-detect peaks button to probe charting points easily.
-            * Use the export options to export your data for submission. You can also use plot options to save your plots.
-            """)
-    with col_h2:
-        # FIX 1: Added a strict 'key' so the toggle never resets automatically
-        is_paused = st.toggle("FREEZE DATA STREAM", key="pause_toggle", disabled=(st.session_state.lab_mode == "IDLE"))
+        * Choose between running a simulation or conducting this experiment using the pendulum in your physics box.
+        * Adjust parameters in the sidebar to begin.
+        * Use the Auto-detect peaks button to probe charting points easily.
+        * Use the export options to export your data for submission. You can also use plot options to save your plots.
+        """)
         
     try:
         df = pd.read_csv("live_data.csv")
@@ -126,7 +119,7 @@ with tab1:
                     f.add_scatter(x=odf["Time"], y=odf[col], mode='markers', marker=dict(color='#ffe100', size=12, symbol='x'), name="Peaks")
                 
                 f.update_layout(dragmode='select', clickmode='event+select', height=400, showlegend=False)
-                if st.session_state.simulation_active and not is_paused:
+                if st.session_state.simulation_active:
                     max_t = df_plot["Time"].max()
                     f.update_layout(xaxis_range=[max(0, max_t - 30), max_t])
 
@@ -134,48 +127,45 @@ with tab1:
             with c1: ev_a = st.plotly_chart(fig_a, use_container_width=True, on_select="rerun", key="a_plt")
             with c2: ev_v = st.plotly_chart(fig_v, use_container_width=True, on_select="rerun", key="v_plt")
             
-            if is_paused:
-                # Manual point selection
-                for ev, store, col in [(ev_a, st.session_state.captured_angle, "Angle"), 
-                                       (ev_v, st.session_state.captured_velocity, "Angular_Velocity")]:
-                    if ev and "selection" in ev and ev["selection"]["points"]:
-                        for p in ev["selection"]["points"]:
-                            new_pt = {"Time": round(p["x"], 2), col: round(p["y"], 2)}
-                            if not any(abs(pt['Time'] - new_pt['Time']) < 0.05 for pt in store):
-                                store.append(new_pt)
-                        st.rerun()
+            # Manual point selection
+            for ev, store, col in [(ev_a, st.session_state.captured_angle, "Angle"), 
+                                   (ev_v, st.session_state.captured_velocity, "Angular_Velocity")]:
+                if ev and "selection" in ev and ev["selection"]["points"]:
+                    for p in ev["selection"]["points"]:
+                        new_pt = {"Time": round(p["x"], 2), col: round(p["y"], 2)}
+                        if not any(abs(pt['Time'] - new_pt['Time']) < 0.05 for pt in store):
+                            store.append(new_pt)
 
-                st.markdown("---")
-                btn_col1, btn_col2 = st.columns([3, 1])
-                with btn_col1:
-                    if st.button("⚡ Auto detect peaks and Tabulate Current View", use_container_width=True):
-                        # FIX 2: Explicitly clear and rebuild lists to avoid Python reference bugs
-                        st.session_state.captured_angle.clear()
-                        st.session_state.captured_velocity.clear()
+            st.markdown("---")
+            btn_col1, btn_col2 = st.columns([3, 1])
+            with btn_col1:
+                # PERMANENTLY VISIBLE BUTTON
+                if st.button("⚡ Auto detect peaks and Tabulate Current View", use_container_width=True):
+                    st.session_state.captured_angle.clear()
+                    st.session_state.captured_velocity.clear()
+                    
+                    # Process Angle Peaks
+                    pks_a, _ = signal.find_peaks(df_plot["Angle"], distance=20, prominence=0.5)
+                    vly_a, _ = signal.find_peaks(-df_plot["Angle"], distance=20, prominence=0.5)
+                    for i in np.concatenate([pks_a, vly_a]):
+                        row = df_plot.iloc[i]
+                        st.session_state.captured_angle.append({"Time": round(row["Time"], 2), "Angle": round(row["Angle"], 2)})
                         
-                        # Process Angle Peaks
-                        pks_a, _ = signal.find_peaks(df_plot["Angle"], distance=20, prominence=0.5)
-                        vly_a, _ = signal.find_peaks(-df_plot["Angle"], distance=20, prominence=0.5)
-                        for i in np.concatenate([pks_a, vly_a]):
-                            row = df_plot.iloc[i]
-                            st.session_state.captured_angle.append({"Time": round(row["Time"], 2), "Angle": round(row["Angle"], 2)})
-                            
-                        # Process Velocity Peaks
-                        pks_v, _ = signal.find_peaks(df_plot["Angular_Velocity"], distance=20, prominence=1.0)
-                        vly_v, _ = signal.find_peaks(-df_plot["Angular_Velocity"], distance=20, prominence=1.0)
-                        for i in np.concatenate([pks_v, vly_v]):
-                            row = df_plot.iloc[i]
-                            st.session_state.captured_velocity.append({"Time": round(row["Time"], 2), "Angular_Velocity": round(row["Angular_Velocity"], 2)})
-                            
-                        st.rerun()
-                
-                with btn_col2:
-                    if st.button("🗑️ Clear All Probes", use_container_width=True):
-                        st.session_state.captured_angle.clear()
-                        st.session_state.captured_velocity.clear()
-                        st.rerun()
+                    # Process Velocity Peaks
+                    pks_v, _ = signal.find_peaks(df_plot["Angular_Velocity"], distance=20, prominence=1.0)
+                    vly_v, _ = signal.find_peaks(-df_plot["Angular_Velocity"], distance=20, prominence=1.0)
+                    for i in np.concatenate([pks_v, vly_v]):
+                        row = df_plot.iloc[i]
+                        st.session_state.captured_velocity.append({"Time": round(row["Time"], 2), "Angular_Velocity": round(row["Angular_Velocity"], 2)})
+                        
+            with btn_col2:
+                # PERMANENTLY VISIBLE BUTTON
+                if st.button("🗑️ Clear All Probes", use_container_width=True):
+                    st.session_state.captured_angle.clear()
+                    st.session_state.captured_velocity.clear()
+                    st.rerun()
 
-            # FIX 3: Un-indented the tables! They will always show up now, frozen or not.
+            # PERMANENTLY VISIBLE TABLES
             t1, t2 = st.columns(2)
             with t1:
                 if st.session_state.captured_angle:
@@ -267,6 +257,6 @@ with tab3:
                 st.session_state.lab_notebook = []
                 st.rerun()
 
-if st.session_state.simulation_active and not is_paused:
+if st.session_state.simulation_active:
     time.sleep(0.05)
     st.rerun()
