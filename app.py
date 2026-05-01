@@ -37,10 +37,14 @@ with st.sidebar:
         mass = st.number_input("Mass (m) [kg]", value=0.500, step=0.001, format="%.3f")
 
     with st.expander("INITIAL CONDITIONS", expanded=True):
-        init_angle = st.slider("Release Angle [deg]", -90.0, 90.0, 45.0)
-        friction = st.slider("Damping Coeff (b)", 0.00, 1.00, 0.05)
+        # Disable initial conditions if they are doing the physical lab
+        is_physical = st.session_state.lab_mode == "Physical"
+        init_angle = st.slider("Release Angle [deg]", -90.0, 90.0, 45.0, disabled=is_physical)
+        friction = st.slider("Damping Coeff (b)", 0.00, 1.00, 0.05, disabled=is_physical)
 
     st.markdown("---")
+    
+    # UI FIX: Brought back the physical connection button alongside the simulation button
     if not st.session_state.simulation_active:
         if st.button("EXECUTE SIMULATION", use_container_width=True, type="primary", key="start_sim_btn"):
             if st.session_state.simulation_process:
@@ -58,11 +62,18 @@ with st.sidebar:
             st.session_state.simulation_active = True
             st.session_state.simulation_process = subprocess.Popen([sys.executable, "mock_sensor.py"], env=env_vars)
             st.rerun()
+            
+        if st.button("CONNECT PHYSICAL PENDULUM", use_container_width=True, key="connect_phys_btn"):
+            st.session_state.lab_mode = "Physical"
+            st.session_state.simulation_active = False
+            st.rerun()
+            
     else:
         if st.button("TERMINATE PROCESS", use_container_width=True, key="stop_sim_btn"):
             if st.session_state.simulation_process:
                 st.session_state.simulation_process.terminate()
             st.session_state.simulation_active = False
+            st.session_state.lab_mode = "IDLE" # Reset to IDLE so the welcome screen comes back
             st.rerun()
 
 # --- MAIN INTERFACE ---
@@ -191,8 +202,7 @@ with tab1:
 with tab2:
     st.header("SECONDS PENDULUM CALIBRATION")
     
-    # Text hidden by default inside an expander so it doesn't take up massive screen space!
-    with st.expander("Show Lab Instructions", expanded=True):
+    with st.expander("Show Lab Instructions", expanded=False):
         st.markdown("The time period ($T$) of a simple pendulum is governed by its length ($L$) and gravity ($g$):")
         st.latex(r"T = 2\pi \sqrt{\frac{L}{g}}")
         st.markdown("""
@@ -208,7 +218,6 @@ with tab2:
     with col_t2_1:
         with st.container(border=True):
             st.metric("MEASURED T", f"{round(measured_period, 4)} s")
-            # Replaced stock ticker with a subtle gray caption
             if measured_period > 0:
                 st.caption(f"Δ Target (2.0s): {round(abs(measured_period-2.0), 4)} s")
             else:
@@ -239,8 +248,7 @@ with tab2:
 with tab3:
     st.header("GRAVITY FIELD ANALYSIS")
     
-    # Text hidden by default here too
-    with st.expander("Show Lab Instructions", expanded=True):
+    with st.expander("Show Lab Instructions", expanded=False):
         st.markdown("In this mode, assume the 'Gravity' parameter in the sidebar is unknown.")
         st.latex(r"g = \frac{4\pi^2 L}{T^2}")
     
