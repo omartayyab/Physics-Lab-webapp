@@ -192,7 +192,7 @@ with tab2:
     st.header("SECONDS PENDULUM CALIBRATION")
     
     # Text hidden by default inside an expander so it doesn't take up massive screen space!
-    with st.expander("Show Lab Instructions", expanded=False):
+    with st.expander("Show Lab Instructions", expanded=True):
         st.markdown("The time period ($T$) of a simple pendulum is governed by its length ($L$) and gravity ($g$):")
         st.latex(r"T = 2\pi \sqrt{\frac{L}{g}}")
         st.markdown("""
@@ -240,7 +240,7 @@ with tab3:
     st.header("GRAVITY FIELD ANALYSIS")
     
     # Text hidden by default here too
-    with st.expander("Show Lab Instructions", expanded=False):
+    with st.expander("Show Lab Instructions", expanded=True):
         st.markdown("In this mode, assume the 'Gravity' parameter in the sidebar is unknown.")
         st.latex(r"g = \frac{4\pi^2 L}{T^2}")
     
