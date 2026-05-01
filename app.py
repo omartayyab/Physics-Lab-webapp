@@ -69,13 +69,12 @@ with st.sidebar:
             st.rerun()
             
     else:
-        if st.button("TERMINATE PROCESS", use_container_width=True, key="stop_sim_btn"):
-            if st.session_state.simulation_process:
-                st.session_state.simulation_process.terminate()
-            st.session_state.simulation_active = False
-            st.session_state.lab_mode = "IDLE" # Reset to IDLE so the welcome screen comes back
-            st.rerun()
-
+            if st.button("TERMINATE PROCESS", use_container_width=True, key="stop_sim_btn"):
+                if st.session_state.simulation_process:
+                    st.session_state.simulation_process.terminate()
+                st.session_state.simulation_active = False
+                # REMOVED: st.session_state.lab_mode = "IDLE" <-- This was the line destroying your data!
+                st.rerun()
 # --- MAIN INTERFACE ---
 st.title("PENDULUM DYNAMICS ANALYZER")
 
