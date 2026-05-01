@@ -11,12 +11,10 @@ import sys
 # Forces a wide, professional layout
 st.set_page_config(page_title="PHYS-LAB: Pendulum Kinematics", layout="wide")
 
-# Custom CSS for a "Terminal" feel
+# Kept the monospace font for a "Scientific" feel, but removed all the ugly dark-mode overrides!
 st.markdown("""
     <style>
     .stApp { font-family: 'Courier New', Courier, monospace; }
-    h1, h2, h3 { border-bottom: 1px solid #30363d; padding-bottom: 10px; }
-    .stMetric { background-color: #161b22; border: 1px solid #30363d; padding: 10px; border-radius: 5px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -101,23 +99,22 @@ with tab1:
         * Use the export options to export your data for submission. You can also use plot options to save your plots.
         """)
     else:
-        # THE WALL: Only try to load graphs if we are NOT Idle!
         try:
             df = pd.read_csv("live_data.csv")
             if not df.empty:
                 df = df.sort_values("Time").reset_index(drop=True)
                 df_plot = df.tail(400) if st.session_state.simulation_active else df
                 
-                # Dark theme plots
-                fig_a = px.line(df_plot, x="Time", y="Angle", template="plotly_dark", color_discrete_sequence=['#00d4ff'])
-                fig_v = px.line(df_plot, x="Time", y="Angular_Velocity", template="plotly_dark", color_discrete_sequence=['#ff4b4b'])
+                # Dynamic plots (Removed forced dark theme so it adapts to user preference)
+                fig_a = px.line(df_plot, x="Time", y="Angle", color_discrete_sequence=['#00a8e8'])
+                fig_v = px.line(df_plot, x="Time", y="Angular_Velocity", color_discrete_sequence=['#ff4b4b'])
                 
                 # Draw the points on the graphs
                 for f, store, col in [(fig_a, st.session_state.captured_angle, "Angle"), 
                                       (fig_v, st.session_state.captured_velocity, "Angular_Velocity")]:
                     if store:
                         odf = pd.DataFrame(store)
-                        f.add_scatter(x=odf["Time"], y=odf[col], mode='markers', marker=dict(color='#ffe100', size=12, symbol='x'), name="Peaks")
+                        f.add_scatter(x=odf["Time"], y=odf[col], mode='markers', marker=dict(color='#ff9900', size=12, symbol='x'), name="Peaks")
                     
                     f.update_layout(dragmode='select', clickmode='event+select', height=400, showlegend=False)
                     if st.session_state.simulation_active:
@@ -238,7 +235,12 @@ with tab3:
     
     if measured_period > 0:
         calc_g = (4 * (np.pi**2) * length) / (measured_period**2)
-        st.metric("CALCULATED g", f"{round(calc_g, 3)} m/s²")
+        
+        # FIX: Placed the metric in a small, constrained column so it looks like a professional read-out!
+        col_metric, _ = st.columns([1, 3])
+        with col_metric:
+            st.metric("CALCULATED g", f"{round(calc_g, 3)} m/s²")
+            
         if st.button("COMMIT DATA TO NOTEBOOK"):
             st.session_state.lab_notebook.append({"L": length, "T": round(measured_period, 4), "calc_g": round(calc_g, 3)})
             st.rerun()
